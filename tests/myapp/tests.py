@@ -6,6 +6,10 @@ import re
 import sys
 import tempfile
 
+#import django.apps
+from django.db import connection
+from django.core.management.color import no_style
+
 import unittest
 
 import django
@@ -34,6 +38,19 @@ from myapp.models import (
     Category, Item, Genre, CustomPKName, SingleProxyModel, DoubleProxyModel,
     ConcreteModel, OrderedInsertion, AutoNowDateFieldModel, Person,
     CustomTreeQueryset, Node, ReferencingModel, CustomTreeManager)
+
+def reset_sequences():
+    """
+    For each call to a setUp() function, ensure that sequences start at 1.
+    When using PostgreSQL as the backend instead of SQLite, sequences are
+    not reset automatically when transactions are rolled back.
+    """
+    models = get_models(include_auto_created=True) #django.apps.apps.get_app_config('myapp').get_models(include_auto_created=True)
+    commands = connection.ops.sequence_reset_sql(no_style(), models)
+    if commands:
+        sql = ';\n'.join(commands)
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
 
 
 def get_tree_details(nodes):
@@ -320,6 +337,7 @@ class ConcurrencyTestCase(TreeTestCase):
     tree structure has been changed.
     """
     def setUp(self):
+        reset_sequences()
         fruit = ConcreteModel.objects.create(name="Fruit")
         vegie = ConcreteModel.objects.create(name="Vegie")
         ConcreteModel.objects.create(name="Apple", parent=fruit)
@@ -554,6 +572,7 @@ class CustomPKNameTestCase(TreeTestCase):
 
 class DisabledUpdatesTestCase(TreeTestCase):
     def setUp(self):
+        reset_sequences()
         self.a = ConcreteModel.objects.create(name="a")
         self.b = ConcreteModel.objects.create(name="b", parent=self.a)
         self.c = ConcreteModel.objects.create(name="c", parent=self.a)
@@ -744,6 +763,7 @@ class DisabledUpdatesTestCase(TreeTestCase):
 
 class DelayedUpdatesTestCase(TreeTestCase):
     def setUp(self):
+        reset_sequences()
         self.a = ConcreteModel.objects.create(name="a")
         self.b = ConcreteModel.objects.create(name="b", parent=self.a)
         self.c = ConcreteModel.objects.create(name="c", parent=self.a)
@@ -948,6 +968,7 @@ class DelayedUpdatesTestCase(TreeTestCase):
 
 class OrderedInsertionDelayedUpdatesTestCase(TreeTestCase):
     def setUp(self):
+        reset_sequences()
         self.c = OrderedInsertion.objects.create(name="c")
         self.d = OrderedInsertion.objects.create(name="d", parent=self.c)
         self.e = OrderedInsertion.objects.create(name="e", parent=self.c)
@@ -1722,6 +1743,9 @@ class TreeManagerTestCase(TreeTestCase):
 
 
 class TestOrderedInsertionBFS(TreeTestCase):
+    def setUp(self):
+        reset_sequences()
+
     def test_insert_ordered_DFS_backwards_root_nodes(self):
         rock = OrderedInsertion.objects.create(name="Rock")
 

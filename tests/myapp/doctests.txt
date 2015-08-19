@@ -2,6 +2,7 @@
 >>> from django.db import connection
 >>> from mptt.exceptions import InvalidMove
 >>> from myapp.models import Genre, Insert, MultiOrder, Node, OrderedInsertion, Tree, Person, Student
+>>> from myapp.tests import reset_sequences
 
 >>> def print_tree_details(nodes):
 ...     opts = nodes[0]._mptt_meta
@@ -12,6 +13,10 @@
 ...                      for n in nodes]))
 
 >>> def reset_sequence(model):
+...     if connection.vendor != 'sqlite':
+...         #Call the postgres-friendly function and reset all model sequences
+...         reset_sequences() 
+...         return
 ...     # This fixes test failures. For a strange reason, this snippet is
 ...     # only necessary with PY3. Also, do not fail if the table does not
 ...     # exist at all for some reason.
@@ -23,8 +28,7 @@
 ...         pass
 
 # Creation ####################################################################
-# creation with a given ID
->>> action = Genre.objects.create(pk=1, name='Action')
+>>> action = Genre.objects.create(name='Action')
 >>> platformer = Genre.objects.create(name='Platformer', parent=action)
 >>> platformer_2d = Genre.objects.create(name='2D Platformer', parent=platformer)
 >>> platformer = Genre.objects.get(pk=platformer.pk)
@@ -1554,7 +1558,7 @@ ValueError: Cannot insert a node which has already been saved.
 >>> jane = Student.objects.create(name='Jane', parent=jeff)
 >>> joe = Person.objects.create(name='Joe', parent=jane)
 >>> julie = Student.objects.create(name='Julie', parent=jess)
->>> print_tree_details(Person.objects.all())
+>>> print_tree_details(Person.objects.all().order_by('pk'))
 1 - 1 0 1 6
 2 1 1 1 2 3
 3 1 1 1 4 5
